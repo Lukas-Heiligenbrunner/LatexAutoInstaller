@@ -3,36 +3,46 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 )
 
+const (
+	ErrNoCompiler = "none of the following latex compilers available: [latexmk, pdflatex]"
+)
+
 func main() {
 	fmt.Printf("Pdflatex command exists: %t\n", commandExists("pdflatex"))
-	fmt.Printf("%s/%s\n", runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("LatexMk command exists: %t\n", commandExists("latexmk"))
+	fmt.Printf("Operation System: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 
 	compileAndInstall()
 }
 
 func compileAndInstall() {
 	out, err := compileLatex("main.tex")
-	//fmt.Println(*out)
+
 	if err != nil {
 		fmt.Println("An error occured while compiling the document!")
 
-		filename := parseMissingFile(out)
-		if filename != "" {
+		if err.Error() == ErrNoCompiler {
+			log.Fatal(err.Error())
+		}
+
+		if filename := parseMissingFile(out); filename != "" {
 			fmt.Printf("We need to download: %s\n", filename)
 
-			// now we neet to perform a root check
+			// now we need to perform a root check
 			if rootCheck() {
 				log.Println("Awesome! You are now running this program with root permissions!")
 
 				if installFile(filename) {
+					// we remove the main aux file to really trigger a rebuild!
+					os.Remove("main.aux")
 					// if successfully installed we try to compile again
 					compileAndInstall()
 				}
@@ -91,7 +101,14 @@ func commandExists(cmd string) bool {
 
 // parse the thumbail picture from video file
 func compileLatex(filename string) (*string, error) {
-	app := "pdflatex"
+	app := ""
+	if commandExists("latexmk") {
+		app = "latexmk"
+	} else if commandExists("pdflatex") {
+		app = "pdflatex"
+	} else {
+		return nil, fmt.Errorf(ErrNoCompiler)
+	}
 
 	cmd := exec.Command(app,
 		"-file-line-error",
@@ -124,14 +141,11 @@ func rootCheck() bool {
 	i, err := strconv.Atoi(string(output[:len(output)-1]))
 
 	if err != nil {
+		// maybe no unix system?
 		log.Fatal(err)
 	}
 
-	if i == 0 {
-		return true
-	} else {
-		return false
-	}
+	return i == 0
 }
 
 func installFile(filename string) bool {
@@ -147,17 +161,25 @@ func installFile(filename string) bool {
 	stderr, _ := cmd.StderrPipe()
 
 	fmt.Println("running dnf install now!")
+	cmd.Start()
 
 	go func() {
-		merged := io.MultiReader(stderr, stdout)
-		scanner := bufio.NewScanner(merged)
+		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			m := scanner.Text()
 			fmt.Println(m)
 		}
 	}()
 
-	err := cmd.Run()
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			m := scanner.Text()
+			fmt.Println(m)
+		}
+	}()
+
+	err := cmd.Wait()
 	if err != nil {
 		fmt.Println(err.Error())
 		return false
