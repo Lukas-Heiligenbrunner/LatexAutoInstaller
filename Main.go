@@ -25,7 +25,7 @@ func main() {
 }
 
 func compileAndInstall() {
-	out, err := compileLatex("main.tex")
+	out, err := compileLatex()
 
 	if err != nil {
 		fmt.Println("An error occured while compiling the document!")
@@ -100,8 +100,8 @@ func commandExists(cmd string) bool {
 	return err == nil
 }
 
-// parse the thumbail picture from video file
-func compileLatex(filename string) (*string, error) {
+// compile latex document with passed cmd args (or default ones if nothing passed) and return output or error
+func compileLatex() (*string, error) {
 	app := ""
 	if commandExists("latexmk") {
 		app = "latexmk"
@@ -111,12 +111,20 @@ func compileLatex(filename string) (*string, error) {
 		return nil, fmt.Errorf(ErrNoCompiler)
 	}
 
-	cmd := exec.Command(app,
-		"-file-line-error",
+	argsWithoutProg := os.Args[1:]
+	filename := "main.tex"
+	if len(argsWithoutProg) > 0 {
+		filename = argsWithoutProg[len(argsWithoutProg)-1]
+		// cut last arg --> filename
+		argsWithoutProg = argsWithoutProg[:len(argsWithoutProg)-1]
+	}
+
+	// insert default args
+	argsWithoutProg = append(argsWithoutProg, "-file-line-error",
 		"-interaction=nonstopmode",
 		"-synctex=1",
-		"-output-format=pdf",
-		filename)
+		"-output-format=pdf", filename)
+	cmd := exec.Command(app, argsWithoutProg...)
 
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
@@ -151,6 +159,7 @@ func compileLatex(filename string) (*string, error) {
 
 var i = 0
 
+// printPoint print a point with every 10th method call
 func printPoint() {
 	if i%10 == 0 {
 		fmt.Printf(".")
@@ -163,6 +172,7 @@ func printPoint() {
 	}
 }
 
+// rootCheck perform a root user check
 func rootCheck() bool {
 	cmd := exec.Command("id", "-u")
 	output, err := cmd.Output()
