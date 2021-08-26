@@ -7,9 +7,11 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -53,17 +55,16 @@ func compileAndInstall() {
 		} else {
 			fmt.Println(*out)
 
-			fmt.Println("another build error occured!")
+			fmt.Println("Another build error occured!")
 		}
 	} else {
-		fmt.Println("document built successfully!")
+		fmt.Println("Document built successfully!")
 	}
 }
 
 func parseMissingFile(output *string) string {
 	matchfile := regexp.MustCompile("! LaTeX Error: File `([^`']*)' not found|! I can't find file `([^`']*)'.")
 	matches := matchfile.FindStringSubmatch(*output)
-	fmt.Printf("%#v\n", matches)
 	if matches != nil {
 		if matches[1] != "" {
 			return matches[1]
@@ -75,7 +76,6 @@ func parseMissingFile(output *string) string {
 	// ok now we try to find a font error
 	fontregex := regexp.MustCompile(`! Font \\[^=]*=([^\s]*)\s`)
 	fontmatch := fontregex.FindStringSubmatch(*output)
-	fmt.Printf("%#v\n", fontmatch)
 	if fontmatch != nil {
 		if fontmatch[1] != "" {
 			return fontmatch[1]
@@ -129,6 +129,7 @@ func compileLatex() (*string, error) {
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
+	fmt.Println("Building:")
 	cmd.Start()
 
 	output := ""
@@ -198,29 +199,51 @@ func rootCheck() bool {
 }
 
 func installFile(filename string) bool {
-	if !commandExists("dnf") {
-		fmt.Println("dnf not existing!")
+	if commandExists("dnf") {
+		cmd := exec.Command("dnf", "-y", "install", fmt.Sprintf("tex(%s)", filename))
+		fmt.Println(cmd.String())
+
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
+
+		fmt.Println("running dnf install now!")
+		cmd.Start()
+
+		printReadCloserToStdout(stdout)
+		printReadCloserToStdout(stderr)
+
+		err := cmd.Wait()
+		if err != nil {
+			fmt.Println(err.Error())
+			return false
+		}
+		return true
+	} else if commandExists("tlmgr") {
+		fmt.Println("dnf not existing -> trying to install with tlmgr")
+
+		// tlmgr package name should be filename without suffix
+		cmd := exec.Command("tlmgr", "install", strings.TrimSuffix(filename, filepath.Ext(filename)))
+		fmt.Println(cmd.String())
+
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
+
+		fmt.Println("running tlmgr install now!")
+		cmd.Start()
+
+		printReadCloserToStdout(stdout)
+		printReadCloserToStdout(stderr)
+
+		err := cmd.Wait()
+		if err != nil {
+			fmt.Println(err.Error())
+			return false
+		}
+		return true
+	} else {
+		fmt.Println("There seems to be no tex distribution to be installed??")
 		return false
 	}
-
-	cmd := exec.Command("dnf", "-y", "install", fmt.Sprintf("tex(%s)", filename))
-	fmt.Println(cmd.String())
-
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
-
-	fmt.Println("running dnf install now!")
-	cmd.Start()
-
-	printReadCloserToStdout(stdout)
-	printReadCloserToStdout(stderr)
-
-	err := cmd.Wait()
-	if err != nil {
-		fmt.Println(err.Error())
-		return false
-	}
-	return true
 }
 
 func printReadCloserToStdout(reader io.ReadCloser) {

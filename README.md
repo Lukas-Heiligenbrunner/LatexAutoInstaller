@@ -4,4 +4,5 @@ This application installs all neccessary latex packages to perform a successfull
 
 ## Currently Supported OS
 
-* Fedora
+* Fedora (dnf) with native package manager
+* every linux with tlmgr available
