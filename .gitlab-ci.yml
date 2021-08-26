@@ -1,0 +1,9 @@
+Build_Go:
+  image: golang:latest
+  stage: build
+  script:
+    - go build -v -o latexautoinstaller
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - "./latexautoinstaller*"
