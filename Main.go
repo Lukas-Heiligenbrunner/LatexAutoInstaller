@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -117,11 +118,49 @@ func compileLatex(filename string) (*string, error) {
 		"-output-format=pdf",
 		filename)
 
-	stdout, err := cmd.Output()
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
 
-	output := string(stdout)
+	cmd.Start()
+
+	output := ""
+
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+
+		for scanner.Scan() {
+			m := scanner.Text()
+			output += m + "\n"
+			printPoint()
+		}
+		fmt.Println()
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			scanner.Text()
+			printPoint()
+		}
+	}()
+
+	err := cmd.Wait()
 
 	return &output, err
+}
+
+var i = 0
+
+func printPoint() {
+	if i%10 == 0 {
+		fmt.Printf(".")
+	}
+
+	i++
+	if i > 500 {
+		i = 0
+		fmt.Println()
+	}
 }
 
 func rootCheck() bool {
@@ -163,21 +202,8 @@ func installFile(filename string) bool {
 	fmt.Println("running dnf install now!")
 	cmd.Start()
 
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			m := scanner.Text()
-			fmt.Println(m)
-		}
-	}()
-
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			m := scanner.Text()
-			fmt.Println(m)
-		}
-	}()
+	printReadCloserToStdout(stdout)
+	printReadCloserToStdout(stderr)
 
 	err := cmd.Wait()
 	if err != nil {
@@ -185,4 +211,14 @@ func installFile(filename string) bool {
 		return false
 	}
 	return true
+}
+
+func printReadCloserToStdout(reader io.ReadCloser) {
+	go func() {
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			m := scanner.Text()
+			fmt.Println(m)
+		}
+	}()
 }
