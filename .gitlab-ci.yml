@@ -1,9 +1,25 @@
+stages:
+  - build
+  - compress
+
 Build_Go:
   image: golang:latest
   stage: build
   script:
-    - go build -v -o latexautoinstaller
+    - go build -ldflags="-s -w" -v -o latexautoinstaller
   artifacts:
     expire_in: 2 days
     paths:
       - "./latexautoinstaller*"
+
+Compress_upx:
+  image: hairyhenderson/upx
+  stage: compress
+  dependencies:
+    - Build_Go
+  script:
+    - upx --ultra-brute -o latexautoinstaller-upx latexautoinstaller
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - "./latexautoinstaller-upx*"
