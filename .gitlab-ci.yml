@@ -18,7 +18,7 @@ Compress_upx:
   dependencies:
     - Build_Go
   script:
-    - upx --ultra-brute -o latexautoinstaller-upx latexautoinstaller
+    - upx --ultra-brute -v --no-progress -o latexautoinstaller-upx latexautoinstaller
   artifacts:
     expire_in: 2 days
     paths:
