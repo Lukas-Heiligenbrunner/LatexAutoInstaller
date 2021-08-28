@@ -13,7 +13,7 @@ Build_Go:
       - "./latexautoinstaller*"
 
 Compress_upx:
-  image: fjolsvin/upx
+  image: kolaente/upx
   stage: compress
   dependencies:
     - Build_Go
