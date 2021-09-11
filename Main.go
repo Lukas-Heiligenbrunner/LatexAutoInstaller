@@ -119,11 +119,13 @@ func compileLatex() (*string, error) {
 		argsWithoutProg = argsWithoutProg[:len(argsWithoutProg)-1]
 	}
 
+	addArgIfNotExisting(&argsWithoutProg, "-interaction", "-interaction=nonstopmode")
+	addArgIfNotExisting(&argsWithoutProg, "-synctex", "-synctex=1")
+	addArgIfNotExisting(&argsWithoutProg, "-ouput-format", "-output-format=pdf")
+	addArgIfNotExisting(&argsWithoutProg, "-file-line-error", "-file-line-error")
+
 	// insert default args
-	argsWithoutProg = append(argsWithoutProg, "-file-line-error",
-		"-interaction=nonstopmode",
-		"-synctex=1",
-		"-output-format=pdf", filename)
+	argsWithoutProg = append(argsWithoutProg, filename)
 	cmd := exec.Command(app, argsWithoutProg...)
 
 	stdout, _ := cmd.StdoutPipe()
@@ -156,6 +158,20 @@ func compileLatex() (*string, error) {
 	err := cmd.Wait()
 
 	return &output, err
+}
+
+func addArgIfNotExisting(args *[]string, searchstring string, arg string) {
+	exists := false
+	for _, s := range *args {
+		if strings.Contains(s, searchstring) {
+			exists = true
+		}
+	}
+
+	if !exists {
+		tmp := append(*args, arg)
+		*args = tmp
+	}
 }
 
 var i = 0
